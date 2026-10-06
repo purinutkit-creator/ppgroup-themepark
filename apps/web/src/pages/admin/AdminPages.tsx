@@ -244,7 +244,8 @@ function toForm(def: EntityDef, row: any) {
 
 function EntityForm({ def, row, refOpts, onClose, onSaved }: { def: EntityDef; row: any; refOpts: Record<string, any[]>; onClose: () => void; onSaved: () => void }) {
   const branchId = useBranchId();
-  const [f, setF] = useState(() => toForm(def, row));
+  const [initial] = useState(() => toForm(def, row));
+  const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
   const save = async () => {
     const body: Record<string, any> = {};
@@ -252,6 +253,7 @@ function EntityForm({ def, row, refOpts, onClose, onSaved }: { def: EntityDef; r
       for (const fd of def.fields) {
         let v = f[fd.key];
         if (fd.type === 'password') { if (v) body[fd.key] = v; continue; }
+        if (row.id && JSON.stringify(v) === JSON.stringify(initial[fd.key])) continue; // update: send only changed fields
         if (v === '' || v === undefined) { if (row.id) body[fd.key] = null; continue; }
         if (fd.type === 'number') v = Number(v);
         if (fd.type === 'money') v = Math.round(Number(v) * 100);
@@ -259,7 +261,7 @@ function EntityForm({ def, row, refOpts, onClose, onSaved }: { def: EntityDef; r
         if (fd.type === 'datetime') v = new Date(v).toISOString();
         body[fd.key] = v;
       }
-      for (const fd of def.fields) if (fd.required && (body[fd.key] === undefined || body[fd.key] === null)) throw new Error(`${fd.label} is required`);
+      for (const fd of def.fields) if (fd.required && (row.id ? body[fd.key] === null : body[fd.key] === undefined || body[fd.key] === null)) throw new Error(`${fd.label} is required`);
       if (def.branch && !row.id) body.branchId = branchId;
       // nullable columns that must not be sent as null on create
       if (!row.id) for (const k of Object.keys(body)) if (body[k] === null) delete body[k];

@@ -43,7 +43,9 @@ export function registerCrud(app: FastifyInstance, e: CrudEntity) {
     const q = req.query as Record<string, string>;
     const where: string[] = [];
     const params: unknown[] = [];
-    if (e.branchScoped) {
+    // HQ staff (no home branch) may list branch-optional entities across all branches
+    const hqAll = e.branchScoped === 'optional' && !req.actor.branchId && !q.branchId;
+    if (e.branchScoped && !hqAll) {
       const branchId = branchOf(req, q.branchId || null);
       params.push(branchId);
       where.push(e.branchScoped === 'optional' ? `(t.branch_id = $${params.length} OR t.branch_id IS NULL)` : `t.branch_id = $${params.length}`);

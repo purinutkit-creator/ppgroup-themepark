@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { sapi, errorMessage } from '../../lib/api';
-import { useAuth } from '../../lib/auth';
+import { useAuth, useBranchId } from '../../lib/auth';
 import { Badge, Button, Card, Field, Input, toast } from '../../components/ui';
 
 /** Pair this browser with a registered device (API key from Admin → Devices) and pick its screen. */
@@ -11,9 +11,11 @@ export function DeviceSetup() {
   const [key, setKey] = useState(deviceKey ?? '');
   const nav = useNavigate();
   const [params] = useSearchParams();
+  const branchId = useBranchId();
+  const bq = deviceKey ? '' : branchId ? `?branchId=${branchId}` : '';
   const me = useQuery({ queryKey: ['device-me', deviceKey], queryFn: () => sapi.get('/api/auth/me'), enabled: !!deviceKey || !!staffToken, retry: false });
-  const gates = useQuery({ queryKey: ['setup-gates'], queryFn: () => sapi.get('/api/gates'), enabled: !!me.data, retry: false });
-  const rides = useQuery({ queryKey: ['setup-rides'], queryFn: () => sapi.get('/api/rides'), enabled: !!me.data, retry: false });
+  const gates = useQuery({ queryKey: ['setup-gates'], queryFn: () => sapi.get(`/api/gates${bq}`), enabled: !!me.data, retry: false });
+  const rides = useQuery({ queryKey: ['setup-rides'], queryFn: () => sapi.get(`/api/rides${bq}`), enabled: !!me.data, retry: false });
   const stores = useQuery({ queryKey: ['setup-stores', me.data?.device?.branch_id ?? me.data?.staff?.branch_id], queryFn: () => sapi.get(`/api/public/stores?branchId=${me.data?.device?.branch_id ?? me.data?.staff?.branch_id ?? useAuth.getState().branchId}`), enabled: !!me.data });
   const save = async () => {
     setDeviceKey(key.trim() || null);
