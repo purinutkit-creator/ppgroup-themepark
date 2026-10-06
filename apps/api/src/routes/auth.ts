@@ -57,7 +57,7 @@ export async function authRoutes(app: FastifyInstance) {
       password: z.string().min(8), gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNSPECIFIED']).nullish(), address: z.string().nullish(), emergencyContact: z.string().nullish(),
       branchId: zUuid.nullish(),
     }), req.body);
-    const r = await withTx((tx) => registerMember(tx, req.actor, { ...b, via: 'ONLINE' }));
+    const r = await withTx((tx) => registerMember(tx, req.actor, { ...b, via: req.actor.deviceType === 'KIOSK' ? 'KIOSK' : 'ONLINE' }));
     const session = await issueMemberSession(req.actor, r.member.id);
     return { token: session.token, expiresAt: session.expiresAt, member: r.member };
   });

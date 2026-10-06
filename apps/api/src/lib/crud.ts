@@ -81,7 +81,9 @@ export function registerCrud(app: FastifyInstance, e: CrudEntity) {
 
   app.patch(`${e.path}/:id`, { preHandler: requirePerm(e.permission) }, async (req) => {
     const { id } = req.params as { id: string };
-    let data = parse(e.schema.partial(), req.body) as Record<string, unknown>;
+    const sent = (req.body ?? {}) as Record<string, unknown>;
+    // zod applies .default() even for partial schemas → keep only keys the client actually sent
+    let data = Object.fromEntries(Object.entries(parse(e.schema.partial(), sent) as Record<string, unknown>).filter(([k]) => k in sent));
     const row = await withTx(async (tx) => {
       const before = await one(tx, `SELECT * FROM ${e.table} WHERE id = $1 FOR UPDATE`, [id]);
       if (!before) throw notFound(e.table);

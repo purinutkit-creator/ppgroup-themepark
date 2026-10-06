@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-main, "IBM Plex Sans Thai"), "Noto Sans SC", ui-sans-serif, system-ui, sans-serif;
+  --color-brand-50: #eef2ff;
+  --color-brand-100: #e0e7ff;
+  --color-brand-500: #6366f1;
+  --color-brand-600: #4f46e5;
+  --color-brand-700: #4338ca;
+  --color-brand-900: #312e81;
+}
+
+html, body, #root { height: 100%; }
+body { @apply bg-slate-50 text-slate-900 antialiased; font-family: var(--font-sans); }
+* { -webkit-tap-highlight-color: transparent; }
+
+@keyframes flash-ring { 0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.9); } 50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); } }
+.flash-ring { animation: flash-ring 1s ease-in-out infinite; }
+@keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.pop { animation: pop 0.25s ease-out; }
+@keyframes scanline { 0% { top: 8%; } 50% { top: 88%; } 100% { top: 8%; } }
+.scanline { animation: scanline 2.4s ease-in-out infinite; }
+
+/* printing: only the #print-root content is printed */
+@media print {
+  body * { visibility: hidden !important; }
+  #print-root, #print-root * { visibility: visible !important; }
+  #print-root { position: absolute; left: 0; top: 0; }
+  @page { margin: 0; }
+}
+.print-58 { width: 58mm; } .print-80 { width: 80mm; } .print-a4 { width: 210mm; }
+.print-wristband { width: 254mm; height: 25mm; }

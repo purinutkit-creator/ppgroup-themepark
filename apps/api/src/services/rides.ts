@@ -14,6 +14,9 @@ import { consumeApproval } from './approvals.js';
 
 export const RIDE_REASONS: Record<string, { th: string; en: string }> = {
   NOT_FOUND: { th: 'ไม่พบบัตรในระบบ', en: 'Card not found' },
+  FORGED_QR: { th: 'QR ไม่ถูกต้อง', en: 'Invalid QR code' },
+  QR_EXPIRED: { th: 'QR หมดอายุ กรุณาเปิดใหม่', en: 'QR expired — refresh your card' },
+  MALFORMED: { th: 'อ่าน QR ไม่ได้', en: 'Unreadable code' },
   RIDE_CLOSED: { th: 'เครื่องเล่นปิดให้บริการ', en: 'Ride closed' },
   RIDE_MAINTENANCE: { th: 'เครื่องเล่นปิดปรับปรุง', en: 'Ride under maintenance' },
   ENTRY_PAUSED: { th: 'หยุดรับผู้เล่นชั่วคราว', en: 'Entry paused' },

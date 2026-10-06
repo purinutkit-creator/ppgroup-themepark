@@ -1,0 +1,38 @@
+# Production-like stack: PostgreSQL + API (Fastify/Socket.IO) + Web (nginx).
+#   docker compose up -d --build
+#   docker compose exec api node dist/db/seed.js     # optional demo configuration
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: themepark
+      POSTGRES_USER: themepark
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-themepark}
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U themepark"]
+      interval: 5s
+      retries: 10
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    depends_on: { db: { condition: service_healthy } }
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://themepark:${DB_PASSWORD:-themepark}@db:5432/themepark
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET (>=32 chars)}
+      QR_SIGNING_SECRET: ${QR_SIGNING_SECRET:?set QR_SIGNING_SECRET (>=32 chars)}
+      CORS_ORIGIN: ${PUBLIC_URL:-http://localhost:8080}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-simulator}
+      ALLOW_PAYMENT_SIMULATOR: ${ALLOW_PAYMENT_SIMULATOR:-false}
+      PROMPTPAY_ID: ${PROMPTPAY_ID:-0812345678}
+      HARDWARE_MODE: ${HARDWARE_MODE:-simulator}
+    volumes: [uploads:/data/uploads]
+    restart: unless-stopped
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    depends_on: [api]
+    ports: ["8080:80"]
+    restart: unless-stopped
+volumes:
+  dbdata:
+  uploads:

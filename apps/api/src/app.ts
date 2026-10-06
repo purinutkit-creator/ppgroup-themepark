@@ -18,7 +18,8 @@ export async function buildApp() {
   await app.register(cors, { origin: config.corsOrigin, credentials: true });
   await app.register(rateLimit, {
     max: Number(process.env.RATE_LIMIT_MAX ?? 600), timeWindow: '1 minute',
-    keyGenerator: (req) => (req.headers['x-device-key'] as string)?.slice(0, 16) ?? req.ip,
+    // per device / per session rather than per IP: a park's terminals often share one NAT address
+    keyGenerator: (req) => (req.headers['x-device-key'] as string)?.slice(0, 16) ?? (req.headers.authorization ? `t:${req.headers.authorization.slice(-24)}` : req.ip),
   });
   await app.register(multipart, { limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 

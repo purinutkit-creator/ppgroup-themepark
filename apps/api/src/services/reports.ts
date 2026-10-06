@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
 import { query, type Db } from '../db/pool.js';
@@ -185,21 +186,47 @@ export async function toXlsx(r: Report): Promise<Buffer> {
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
+const require = createRequire(import.meta.url);
+function thaiFontPath(): string | null {
+  try { return require.resolve('@fontsource/sarabun/files/sarabun-thai-400-normal.woff'); } catch { return null; }
+}
+const THAI_RE = /([\u0E00-\u0E7F]+)/;
+
 export function toPdf(r: Report, meta: { branch: string; from: string; to: string }): Promise<Buffer> {
   return new Promise((resolve) => {
     const doc = new PDFDocument({ size: 'A4', layout: r.columns.length > 6 ? 'landscape' : 'portrait', margin: 32 });
+    const thai = thaiFontPath();
+    if (thai) doc.registerFont('Thai', thai);
     const chunks: Buffer[] = [];
     doc.on('data', (c) => chunks.push(c));
     doc.on('end', () => resolve(Buffer.concat(chunks)));
-    doc.fontSize(16).text(r.title).fontSize(9).fillColor('#555').text(`${meta.branch}  •  ${meta.from} → ${meta.to}  •  generated ${new Date().toISOString()}`).moveDown();
+    /** Mixed Thai / Latin text: switch fonts per script run (PDF fonts have no fallback). */
+    const write = (text: string, x: number | undefined, y: number | undefined, opts: PDFKit.Mixins.TextOptions, bold = false, size = 8) => {
+      const runs = text.split(THAI_RE).filter(Boolean);
+      if (!runs.length) runs.push(' ');
+      runs.forEach((run, i) => {
+        doc.font(thai && THAI_RE.test(run) ? 'Thai' : bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(size);
+        const o = { ...opts, continued: i < runs.length - 1 };
+        if (i === 0 && x !== undefined) doc.text(run, x, y, o); else doc.text(run, o);
+      });
+    };
+    write(r.title, 32, 32, {}, true, 16);
+    doc.fillColor('#555');
+    write(`${meta.branch}  |  ${meta.from} - ${meta.to}  |  generated ${new Date().toISOString()}`, 32, doc.y + 4, {}, false, 9);
+    doc.moveDown();
     const width = doc.page.width - 64;
     const colW = width / r.columns.length;
+    const maxChars = Math.max(4, Math.floor(colW / 4.2));
     const drawRow = (vals: string[], bold = false) => {
-      const y = doc.y;
-      if (y > doc.page.height - 60) doc.addPage();
+      if (doc.y > doc.page.height - 60) doc.addPage();
       const yy = doc.y;
-      vals.forEach((v, i) => doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(8).fillColor('#111').text(v, 32 + i * colW, yy, { width: colW - 4, ellipsis: true, lineBreak: false }));
-      doc.moveDown(0.9);
+      vals.forEach((v, i) => {
+        doc.fillColor('#111');
+        const cell = v.length > maxChars ? `${v.slice(0, maxChars - 1)}…` : v;
+        write(cell, 32 + i * colW, yy, { width: colW - 4, lineBreak: false }, bold);
+      });
+      doc.x = 32;
+      doc.y = yy + 13;
     };
     drawRow(r.columns.map((c) => c.label), true);
     for (const row of r.rows) drawRow(r.columns.map((c) => fmt(row[c.key], c.type)));

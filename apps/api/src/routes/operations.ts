@@ -421,6 +421,14 @@ export async function operationsRoutes(app: FastifyInstance) {
     query(pool, `SELECT s.*, st.first_name, st.employee_code, so.name AS store_name FROM shifts s JOIN staff st ON st.id = s.staff_id LEFT JOIN stores so ON so.id = s.store_id
       WHERE s.branch_id = $1 ORDER BY s.opened_at DESC LIMIT 200`, [branchOf(req, (req.query as any).branchId)]));
 
+  /** Dynamic PromptPay QR for an amount (counter / POS shows it to the customer, staff confirms receipt). */
+  app.get('/api/promptpay-qr', { preHandler: requirePerm('payment.accept') }, async (req) => {
+    const q = parse(z.object({ amount: z.coerce.number().int().positive() }), req.query);
+    const { promptPayPayload } = await import('../lib/promptpay.js');
+    const { config } = await import('../config.js');
+    return { payload: promptPayPayload(config.promptpayId, q.amount), amount: q.amount };
+  });
+
   // ============================ transaction center ============================
   app.get('/api/transactions', { preHandler: requirePerm('transaction.view') }, async (req) => {
     const q = parse(z.object({ branchId: zUuid.optional(), q: z.string().optional(), type: z.string().optional(), category: z.string().optional(), staffId: zUuid.optional(),
