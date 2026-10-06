@@ -1,0 +1,18 @@
+{
+  "name": "ppgroup-themepark",
+  "private": true,
+  "version": "1.0.0",
+  "description": "ONE QR — ONE EXPERIENCE: Enterprise Theme Park / FEC management platform",
+  "workspaces": ["apps/api", "apps/web"],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test -w apps/api",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api"
+  },
+  "engines": { "node": ">=20" }
+}
