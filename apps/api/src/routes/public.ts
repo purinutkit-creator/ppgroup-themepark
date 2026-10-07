@@ -22,12 +22,13 @@ const addonsSchema = z.array(z.object({ productId: zUuid, qty: z.number().int().
 export async function publicRoutes(app: FastifyInstance) {
   app.get('/api/public/config', async (req) => {
     const branchId = (req.query as any).branchId ?? null;
-    const [park, fonts, payments, booking, membership, wallet] = await Promise.all([
+    const [park, fonts, payments, booking, membership, wallet, display] = await Promise.all([
       getSetting('park.info', branchId), getSetting('fonts', branchId), getSetting('payments', branchId), getSetting('booking', branchId), getSetting('membership', branchId), getSetting('wallet', branchId),
+      getSetting('display', branchId),
     ]);
     const customFonts = await query(pool, 'SELECT family, file_path FROM font_assets ORDER BY family');
     return {
-      park, fonts, customFonts: customFonts.map((f: any) => ({ family: f.family, url: `/api/public/fonts/${f.file_path}` })),
+      park, fonts, display, customFonts: customFonts.map((f: any) => ({ family: f.family, url: `/api/public/fonts/${f.file_path}` })),
       paymentMethods: Object.entries(payments.methods).filter(([, m]) => m.enabled).map(([k, m]) => ({ method: k, online: m.online, counter: m.counter })),
       booking: { payAtParkEnabled: booking.payAtParkEnabled, maxGuests: booking.maxGuests, advanceDays: booking.advanceDays, guestCheckout: booking.guestCheckout },
       membership: { digitalCardEnabled: membership.digitalCardEnabled }, wallet: { topupPresets: wallet.topupPresets, minTopup: wallet.minTopup, maxTopup: wallet.maxTopup },

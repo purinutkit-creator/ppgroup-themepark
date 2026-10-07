@@ -326,6 +326,39 @@ describe('lost card & exit', () => {
   });
 });
 
+describe('link an existing card to a member', () => {
+  it('outside card number becomes the member card and works at the counter and gate', async () => {
+    const m = await pool.query(`SELECT id FROM members WHERE phone = '0812345678'`);
+    ids.member = m.rows[0].id;
+    // 16 digits look like a token to the parser — must still fall back to the card number
+    for (const number of ['8850001234567', '1234567890123456']) {
+      const r = await ok('POST', `/api/members/${ids.member}/link-card`, { scan: ` ${number} ` }, 'cashier');
+      expect(r.created).toBe(true);
+      expect(r.credential.physicalSerial).toBe(number);
+      const prof = await ok('POST', '/api/credentials/scan', { scan: number }, 'cashier');
+      expect(prof.member.member_code).toBeTruthy();
+      expect(prof.wallet.balance).toBe(50000);
+    }
+    const g = await ok('POST', `/api/gates/${ids.gates.G07}/scan`, { code: '8850001234567' }, 'gate');
+    expect(g.reasonCode).not.toBe('NOT_FOUND');
+    // linking the same card again is a no-op, not a duplicate
+    const again = await ok('POST', `/api/members/${ids.member}/link-card`, { scan: '8850001234567' }, 'cashier');
+    expect(again.created).toBe(false);
+  });
+
+  it('pre-printed park card (NEW stock) is activated and bound; tickets cannot be linked as cards', async () => {
+    const issued = await ok('POST', '/api/credentials/issue', { type: 'MEMBER_CARD', count: 1, activate: false, branchId: ids.branch }, 'sup');
+    const card = (issued.credentials ?? issued)[0];
+    const r = await ok('POST', `/api/members/${ids.member}/link-card`, { scan: card.payloads?.qr ?? card.qr ?? card.code }, 'cashier');
+    expect(r.created).toBe(false);
+    expect(r.credential.status).toBe('ACTIVE');
+    const c = await pool.query(`SELECT member_id FROM credentials WHERE id = $1`, [r.credential.id]);
+    expect(c.rows[0].member_id).toBe(ids.member);
+    const t = await pool.query(`SELECT code FROM credentials WHERE type = 'QR_TICKET' LIMIT 1`);
+    if (t.rows[0]) expect((await api('POST', `/api/members/${ids.member}/link-card`, { scan: t.rows[0].code }, 'cashier')).status).toBe(422);
+  });
+});
+
 describe('RBAC', () => {
   it('gate operator cannot sell tickets or view reports', async () => {
     expect((await api('POST', '/api/bookings', { packageId: ids.packages.DAY_PASS, visitDate: businessDate(), guests: [{ ticketTypeId: ids.tt.ADULT, qty: 1 }] }, 'gate')).status).toBe(403);

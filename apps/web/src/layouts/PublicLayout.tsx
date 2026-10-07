@@ -3,7 +3,7 @@ import { Globe, User } from 'lucide-react';
 import { useAuth } from '../lib/auth';
 import { LANGS, useLang, useT } from '../lib/i18n';
 import { usePublicConfig, useSurfaceFont } from '../lib/config';
-import { cx } from '../components/ui';
+import { TextSizeControl, cx } from '../components/ui';
 
 export function PublicLayout() {
   useSurfaceFont('customer');
@@ -26,6 +26,7 @@ export function PublicLayout() {
             <NavLink to="/rides-status" className={link}>{t('rides')}</NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <TextSizeControl className="hidden md:inline-flex" />
             <div className="relative flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1">
               <Globe className="h-4 w-4 text-slate-400" />
               <select value={lang} onChange={(e) => setLang(e.target.value as any)} className="bg-transparent text-sm outline-none">

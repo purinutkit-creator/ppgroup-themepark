@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import { create } from 'zustand';
+import { useTextSize } from '../lib/textSize';
 import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from 'lucide-react';
 import { forwardRef, useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
 
@@ -223,4 +224,18 @@ export function Toaster() {
 export function Kbd({ children }: { children: ReactNode }) { return <kbd className="rounded border border-slate-300 bg-slate-50 px-1.5 text-xs text-slate-600">{children}</kbd>; }
 export function KV({ k, v, className }: { k: ReactNode; v: ReactNode; className?: string }) {
   return <div className={cx('flex items-center justify-between gap-3 py-1 text-sm', className)}><span className="text-slate-500">{k}</span><span className="text-right font-medium text-slate-800">{v}</span></div>;
+}
+
+/** A− / A+ text size control for the current screen (remembered on this device). */
+export function TextSizeControl({ className, dark }: { className?: string; dark?: boolean }) {
+  const { step, reset, adjust, current } = useTextSize();
+  const pct = adjust[current] ?? 100;
+  const btn = cx('px-2 py-1 font-bold leading-none transition', dark ? 'text-white/80 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100');
+  return (
+    <div className={cx('inline-flex items-center overflow-hidden rounded-lg border', dark ? 'border-white/20' : 'border-slate-200', className)} title="Text size">
+      <button type="button" className={cx(btn, 'text-xs')} onClick={() => step(-1)} aria-label="Smaller text">A−</button>
+      <button type="button" className={cx(btn, 'min-w-[3rem] text-[11px] font-semibold')} onClick={reset} title="Reset text size">{pct}%</button>
+      <button type="button" className={cx(btn, 'text-base')} onClick={() => step(1)} aria-label="Larger text">A+</button>
+    </div>
+  );
 }

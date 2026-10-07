@@ -4,10 +4,15 @@ import { useQuery } from '@tanstack/react-query';
 import { Delete, LogIn } from 'lucide-react';
 import { sapi, errorMessage } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
-import { Button, Card, Field, Input, cx, toast } from '../../components/ui';
+import { Button, Card, Field, Input, TextSizeControl, cx, toast } from '../../components/ui';
+import { StaffLangToggle } from '../../components/StaffLangToggle';
+import { useStaffTranslation } from '../../lib/staffI18n';
+import { useSurfaceFont } from '../../lib/config';
 
 /** Employee Code + PIN, or "Select Staff + PIN" on a paired device. */
 export function StaffLogin() {
+  useSurfaceFont('admin');
+  useStaffTranslation();
   const nav = useNavigate();
   const [params] = useSearchParams();
   const { setStaff, deviceKey, expiredNotice } = useAuth();
@@ -26,7 +31,8 @@ export function StaffLogin() {
   };
   const press = (d: string) => setPin((p) => (d === 'del' ? p.slice(0, -1) : p.length < 8 ? p + d : p));
   return (
-    <div className="flex min-h-full items-center justify-center bg-gradient-to-br from-slate-900 via-brand-900 to-slate-900 p-4">
+    <div className="relative flex min-h-full items-center justify-center bg-gradient-to-br from-slate-900 via-brand-900 to-slate-900 p-4">
+      <div className="absolute right-3 top-3 flex gap-2"><StaffLangToggle dark /><TextSizeControl dark /></div>
       <Card className="w-full max-w-md">
         <div className="mb-4 text-center"><div className="text-4xl">🎡</div><div className="text-xl font-bold">Staff Login</div><div className="text-sm text-slate-500">ONE QR — Theme Park Management</div></div>
         {expiredNotice && <div className="mb-3 rounded-lg bg-amber-50 p-2 text-center text-sm text-amber-800">Session expired — please log in again.</div>}

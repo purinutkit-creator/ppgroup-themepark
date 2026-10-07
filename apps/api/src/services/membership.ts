@@ -143,7 +143,7 @@ export async function memberSummary(db: Db, memberId: string) {
       FROM memberships ms JOIN membership_products mp ON mp.id = ms.product_id JOIN member_tiers t ON t.id = mp.tier_id
      WHERE ms.member_id = $1 ORDER BY (ms.status = 'ACTIVE') DESC, ms.created_at DESC LIMIT 1`, [memberId]);
   const benefits = membership?.status === 'ACTIVE' ? await query(db, 'SELECT type, value, label, config FROM membership_benefits WHERE product_id = $1', [membership.product_id]) : [];
-  const credentials = await query(db, `SELECT id, code, type, status, issued_at, expires_at FROM credentials WHERE member_id = $1 ORDER BY issued_at DESC`, [memberId]);
+  const credentials = await query(db, `SELECT id, code, type, status, physical_serial, issued_at, expires_at FROM credentials WHERE member_id = $1 ORDER BY issued_at DESC`, [memberId]);
   return { ...m, wallet_balance: Number(m.wallet_balance ?? 0), membership, benefits, credentials };
 }
 

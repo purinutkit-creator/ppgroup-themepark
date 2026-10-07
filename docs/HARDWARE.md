@@ -68,8 +68,16 @@ scanning and records a security event. Hardware `FIRE_ALARM` / `EMERGENCY_RELEAS
 
 ## Scanners
 
-* **Device camera**: continuous ZXing scanner (QR, Code128, EAN-13, Code39). It locks after a successful read until the transaction finishes.
+* **Device camera**: starts on the back camera; the flip button switches front / back and the choice is remembered per device.
+  Uses the browser's native `BarcodeDetector` when available (Chrome / Android, recent Safari) and falls back to ZXing.
+  Formats: QR, Code128, Code39, Code93, Codabar, ITF, EAN-13/8, UPC-A/E, DataMatrix, PDF417, Aztec. It locks after a
+  successful read until the transaction finishes. Needs HTTPS (or localhost).
 * **USB / Bluetooth / 2D scanners** (keyboard wedge) are captured globally (`useKeyboardScanner`): fast bursts ending with Enter, de-duplicated.
+  If the computer's keyboard is on the Thai layout, the scanner's keystrokes arrive as Thai characters; the server maps them
+  back to the US layout before resolving (`lib/keyboard.ts`).
+* **Customers' existing cards**: any card with its own barcode / QR / printed number can be attached to a member with
+  **Link card** (Members → member → Link card, or Ticket Counter → Membership). The value is stored as the card's physical
+  serial and is accepted at gates, rides, POS and lockers from then on.
 * **Dedicated scanners / RFID / NFC (future)**: any reader that can POST the decoded value to `/api/gates/:id/scan` or `/api/rides/:id/scan` with a device key.
   RFID UIDs can be stored as `credentials.physical_serial`; staff lookup accepts the serial, and gate/ride scanning can be enabled per device.
 

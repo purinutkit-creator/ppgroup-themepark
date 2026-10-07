@@ -10,6 +10,7 @@ import { createGuestAccount, ensureMemberAccount } from './accounts.js';
 import { createOrder, memberContext, priceItems, type MemberCtx, type PricedLine } from './orders.js';
 import { issueCredential, credentialPayloads, linkTicket, resolveScan, wristbandExpiry } from './credentials.js';
 import { addDays, endOfDay } from './tickets.js';
+import { fixThaiKeyboardLayout } from '../lib/keyboard.js';
 
 export interface GuestQty { ticketTypeId: string; qty: number }
 export interface QuoteInput {
@@ -281,7 +282,7 @@ export async function bookingDetail(db: Db, idOrNo: string, opts: { includeToken
 
 /** Counter scan of a booking barcode / ticket QR → open booking. */
 export async function bookingFromScan(db: Db, raw: string) {
-  const trimmed = raw.trim().toUpperCase();
+  const trimmed = fixThaiKeyboardLayout(raw).trim().toUpperCase();
   if (/^BK-\d{6}-\d{5}$/.test(trimmed)) return bookingDetail(db, trimmed);
   const { credential } = await resolveScan(db, raw, { allowCode: true });
   if (credential.type === 'BOOKING') return bookingDetail(db, credential.code);

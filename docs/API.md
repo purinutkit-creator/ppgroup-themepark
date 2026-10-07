@@ -189,6 +189,7 @@ GET    /api/members
 POST   /api/members
 GET    /api/members/:id
 PATCH  /api/members/:id
+POST   /api/members/:id/link-card
 POST   /api/members/:id/points
 POST   /api/members/:id/membership
 ```

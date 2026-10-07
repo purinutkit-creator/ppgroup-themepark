@@ -7,6 +7,7 @@ import { useBranchId, useCan } from '../../lib/auth';
 import { fmtDate, thb, today, toSatang } from '../../lib/format';
 import { Badge, Button, Card, Empty, Field, Input, KV, Loading, Modal, PageHeader, Select, Tabs, cx, toast } from '../../components/ui';
 import { ScanBox } from '../../components/ScanBox';
+import { LinkCardButton } from '../../components/LinkCard';
 import { PaymentDialog, type PaymentLine } from '../../components/Payment';
 import { CardProfileView } from '../../components/CardProfile';
 import { Barcode, QR } from '../../components/Codes';
@@ -268,7 +269,8 @@ function MemberDesk() {
   const [f, setF] = useState<Record<string, string>>({});
   const [product, setProduct] = useState('');
   const [mode, setMode] = useState<'NEW' | 'RENEWAL' | 'UPGRADE'>('NEW');
-  const [physical, setPhysical] = useState(true);
+  const [physical, setPhysical] = useState(false);
+  const [cardScan, setCardScan] = useState('');
   const [paying, setPaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const list = useQuery({ queryKey: ['members', q], queryFn: () => sapi.get(`/api/members${qs({ q })}`), enabled: q.length >= 2 });
@@ -277,7 +279,15 @@ function MemberDesk() {
   const price = p ? (mode === 'RENEWAL' ? p.renewal_price ?? p.annual_fee : p.annual_fee + (mode === 'NEW' ? p.registration_fee : 0)) + (physical ? p.physical_card_fee : 0) : 0;
   const register = async () => {
     setBusy(true);
-    try { const r = await sapi.post('/api/members', { ...f, birthday: f.birthday || null, email: f.email || null }); toast.success(`Member ${r.member.member_code}`); setSelected(await sapi.get(`/api/members/${r.member.id}`)); setRegistering(false); }
+    try {
+      const r = await sapi.post('/api/members', { ...f, birthday: f.birthday || null, email: f.email || null });
+      toast.success(`Member ${r.member.member_code}`);
+      if (cardScan.trim()) {
+        try { const l = await sapi.post(`/api/members/${r.member.id}/link-card`, { scan: cardScan.trim() }); toast.success(`Card linked: ${l.credential.physicalSerial ?? l.credential.code}`); }
+        catch (e) { toast.error(errorMessage(e)); }
+      }
+      setSelected(await sapi.get(`/api/members/${r.member.id}`)); setRegistering(false); setF({}); setCardScan('');
+    }
     catch (e) { toast.error(errorMessage(e)); } finally { setBusy(false); }
   };
   const sell = async (lines: PaymentLine[]) => {
@@ -295,13 +305,15 @@ function MemberDesk() {
         <Card title={`${selected.first_name} ${selected.last_name} · ${selected.member_code}`}>
           <KV k="Tier" v={selected.tier_name ?? 'Basic'} /><KV k="Membership" v={selected.membership ? `${selected.membership.product_name} → ${selected.membership.end_date ? fmtDate(selected.membership.end_date) : 'Lifetime'}` : '—'} />
           <KV k="Points" v={selected.points} /><KV k="Wallet" v={thb(selected.wallet_balance)} />
+          <KV k="Cards" v={selected.credentials?.filter((c: any) => c.status === 'ACTIVE' && c.type !== 'DIGITAL_CARD').map((c: any) => c.physical_serial ?? c.code).join(', ') || '—'} />
+          <div className="mt-2"><LinkCardButton memberId={selected.id} block onLinked={async () => setSelected(await sapi.get(`/api/members/${selected.id}`))} /></div>
           <div className="mt-4 space-y-2 rounded-xl bg-slate-50 p-3">
             <div className="text-sm font-semibold">Sell membership</div>
             <div className="grid grid-cols-2 gap-2">
               <Select value={product} onChange={(e) => setProduct(e.target.value)}><option value="">Product…</option>{products.data?.map((x: any) => <option key={x.id} value={x.id}>{x.name} · {thb(x.annual_fee)}</option>)}</Select>
               <Select value={mode} onChange={(e) => setMode(e.target.value as any)}><option value="NEW">New</option><option value="RENEWAL">Renewal</option><option value="UPGRADE">Upgrade</option></Select>
             </div>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={physical} onChange={(e) => setPhysical(e.target.checked)} /> Issue physical member card {p ? `(${thb(p.physical_card_fee)})` : ''}</label>
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={physical} onChange={(e) => setPhysical(e.target.checked)} /> Issue a NEW physical member card {p ? `(${thb(p.physical_card_fee)})` : ''} — not needed when the customer's own card is linked</label>
             <Button block disabled={!product} onClick={() => setPaying(true)} icon={<CreditCard className="h-4 w-4" />}>Charge ~{thb(price)}</Button>
             <div className="text-xs text-slate-500">Final price (proration / early renewal) is computed by the server.</div>
           </div>
@@ -313,6 +325,9 @@ function MemberDesk() {
           {[['firstName', 'First name *'], ['lastName', 'Last name'], ['phone', 'Phone *'], ['email', 'Email'], ['birthday', 'Birthday']].map(([k, l]) => (
             <Field key={k} label={l}><Input type={k === 'birthday' ? 'date' : 'text'} value={f[k] ?? ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>
           ))}
+          <Field label="Existing card (scan to link — optional)" className="col-span-2">
+            <ScanBox compact global={false} placeholder={cardScan ? `Card: ${cardScan}` : 'Scan / type the card number'} onScan={(c) => { setCardScan(c); toast.info(`Card captured: ${c}`); }} />
+          </Field>
         </div>
       </Modal>
     </div>

@@ -38,8 +38,8 @@ Legend: ✅ implemented end-to-end (DB + API + UI) · 🔌 implemented behind an
 | 54, 126 | Ledger wallet, idempotency keys, transaction locks, retry, reconciliation, recovery for paid-but-unfulfilled | ✅ | docs/ARCHITECTURE.md → Transaction safety |
 | 57 | Camera / USB / 2D scanners, continuous camera, lock after read | ✅ | `CameraScanner.tsx`, `lib/scanner.ts` |
 | 60, 124 | Admin settings for everything (dynamic configuration, global + branch override) | ✅ | Settings page, `settings` table |
-| 61 | Thai / English / 中文, default language, kiosk language switch | ✅ (staff back office is English with Thai data) | `lib/i18n.ts` |
-| 62 | Google Fonts per surface + custom font upload | ✅ | Settings → Fonts |
+| 61 | Thai / English / 中文, default language, kiosk language switch; staff screens TH / EN (default in Settings → Language & text size, switch in the top bar) | ✅ | `lib/i18n.ts`, `lib/staffI18n.ts`, `lib/staffTh.ts` |
+| 62 | Google Fonts per surface + custom font upload; text size per surface (admin) and A− / A+ per device | ✅ | Settings → Fonts, Settings → Language & text size |
 | 63–64 | Modern, touch-friendly UI, responsive (desktop, POS, tablet, mobile, kiosk, gate display) | ✅ | Tailwind layouts |
 | 65, 78 | Receipt 58/80 mm/A4, ticket, wristband printing (browser: USB/Bluetooth via OS; LAN ESC/POS), wristband template | ✅ / 🔌 vendor languages (ZPL/EPL not included) | `Print.tsx`, `hardware/printer/escpos.ts` |
 | 66–67 | Sample gate scenarios | ✅ | covered by the journey test and verified in the browser |
@@ -65,4 +65,4 @@ Legend: ✅ implemented end-to-end (DB + API + UI) · 🔌 implemented behind an
 * **Wristband printers**: browser printing + ESC/POS. Zebra ZPL / thermal transfer wristband languages need an adapter.
 * **Horizontal scaling**: add the Socket.IO Redis adapter; gate runtimes are per-process (see OPERATIONS.md).
 * **Timezone**: business-day calculations assume Asia/Bangkok (UTC+7). Branches in other time zones need the offset threaded through `businessDate()` / reporting SQL.
-* The staff back office UI is English (data and customer surfaces are trilingual).
+* Staff screens are translated to Thai through a dictionary of their English texts (`lib/staffTh.ts`); new staff texts need an entry there. Names entered as data (products, rides, tiers) show as entered.

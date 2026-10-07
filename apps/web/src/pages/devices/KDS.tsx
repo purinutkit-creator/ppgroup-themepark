@@ -6,6 +6,7 @@ import { sapi, errorMessage, ApiError } from '../../lib/api';
 import { useRealtime } from '../../lib/socket';
 import { offlineQueue, useOnline } from '../../lib/offline';
 import { useSurfaceFont } from '../../lib/config';
+import { useStaffTranslation } from '../../lib/staffI18n';
 import { cx, toast } from '../../components/ui';
 import { OfflineBanner } from '../../components/OfflineBanner';
 import { DeviceGuard } from './DeviceShell';
@@ -20,6 +21,7 @@ const COLS = [
 
 function Inner() {
   useSurfaceFont('pos');
+  useStaffTranslation();
   const { storeId } = useParams();
   const qc = useQueryClient();
   const online = useOnline();

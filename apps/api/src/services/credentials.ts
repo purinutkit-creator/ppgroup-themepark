@@ -2,6 +2,7 @@ import { one, query, type Db } from '../db/pool.js';
 import { AppError, badRequest, conflict, notFound, unprocessable } from '../lib/errors.js';
 import { codes, businessDate } from '../lib/codes.js';
 import { dynamicQrPayload, newCredentialToken, parseScanPayload, staticQrPayload } from '../lib/crypto.js';
+import { fixThaiKeyboardLayout } from '../lib/keyboard.js';
 import { publish, rooms } from '../realtime/hub.js';
 import type { Actor } from '../middleware/auth.js';
 import { audit } from './audit.js';
@@ -44,7 +45,11 @@ export interface IssueInput {
   issuedBy?: string | null;
 }
 
+/** Card numbers printed / encoded on existing physical cards are stored trimmed and upper-cased. */
+export const normalizeSerial = (raw: string | null | undefined) => fixThaiKeyboardLayout(raw ?? '').trim().toUpperCase() || null;
+
 export async function issueCredential(tx: Db, input: IssueInput) {
+  input = { ...input, physicalSerial: normalizeSerial(input.physicalSerial) };
   if (input.physicalSerial) {
     const taken = await one(tx, 'SELECT id, code, status FROM credentials WHERE physical_serial = $1', [input.physicalSerial]);
     if (taken) throw conflict('SERIAL_IN_USE', `Physical card ${input.physicalSerial} is already registered as ${taken.code} (${taken.status})`);
@@ -87,21 +92,30 @@ export class ScanError extends AppError {
  * Throws ScanError with a reason code (FORGED_QR, NOT_FOUND, EXPIRED_DYNAMIC, MALFORMED).
  */
 export async function resolveScan(db: Db, raw: string, opts: { lock?: boolean; allowCode?: boolean } = {}) {
+  raw = fixThaiKeyboardLayout(raw ?? '');
   const parsed = parseScanPayload(raw);
+  const lock = opts.lock ? 'FOR UPDATE' : '';
   let cred: any = null;
+  let kind: string = parsed.ok ? parsed.kind : 'CODE';
   if (parsed.ok) {
-    cred = await one(db, `SELECT * FROM credentials WHERE token = $1 ${opts.lock ? 'FOR UPDATE' : ''}`, [parsed.token]);
-  } else if (opts.allowCode) {
-    // staff-only manual entry by printed code / physical serial
-    const s = raw.trim().toUpperCase();
-    cred = await one(db, `SELECT * FROM credentials WHERE code = $1 OR physical_serial = $1 ${opts.lock ? 'FOR UPDATE' : ''}`, [s]);
+    cred = await one(db, `SELECT * FROM credentials WHERE token = $1 ${lock}`, [parsed.token]);
   } else if (parsed.reason === 'FORGED') {
     throw new ScanError('FORGED_QR', 'QR ไม่ถูกต้อง (ปลอมแปลง) / Invalid QR signature');
   } else if (parsed.reason === 'EXPIRED_DYNAMIC') {
     throw new ScanError('QR_EXPIRED', 'QR หมดอายุ กรุณาเปิด QR ใหม่ / Dynamic QR expired — refresh the card');
+  } else if (opts.allowCode) {
+    // staff-only manual entry by printed code
+    cred = await one(db, `SELECT * FROM credentials WHERE code = $1 ${lock}`, [raw.trim().toUpperCase()]);
   }
-  if (!cred) throw new ScanError('NOT_FOUND', 'ไม่พบตั๋วในระบบ / Ticket not found');
-  return { credential: cred, kind: parsed.ok ? parsed.kind : 'CODE' };
+  // existing physical cards keep their own barcode / number once registered (linked) in the system;
+  // checked last so a number that happens to look like a token still resolves
+  const serial = normalizeSerial(raw);
+  if (!cred && serial && serial.length <= 64 && (parsed.ok || parsed.reason === 'MALFORMED')) {
+    cred = await one(db, `SELECT * FROM credentials WHERE physical_serial = $1 ${lock}`, [serial]);
+    if (cred) kind = 'SERIAL';
+  }
+  if (!cred) throw new ScanError('NOT_FOUND', 'ไม่พบบัตร / ตั๋วในระบบ / Card or ticket not found');
+  return { credential: cred, kind };
 }
 
 /** Check status + expiry; auto-expires temporary credentials past their expiry. */
@@ -189,6 +203,36 @@ export async function bindMember(tx: Db, actor: Actor, credentialId: string, mem
   }
   afterCommit(() => publish([rooms.account(memberAccount), rooms.account(oldAccount)], 'credential.updated', { credentialId: cred.id }));
   return updated;
+}
+
+/**
+ * "Link card": staff scan a card the customer already holds and attach it to a member.
+ * - a card already in the system (pre-printed batch, guest wristband, our QR) is bound to the member
+ *   (guest balance / rights move along) and activated when it was still NEW;
+ * - an outside card (its own barcode / QR / number) is registered as a MEMBER_CARD whose physical serial is that value,
+ *   so gates, rides, POS and lockers accept it from then on.
+ */
+export async function linkCardToMember(tx: Db, actor: Actor, memberId: string, raw: string, afterCommit: (cb: () => void) => void) {
+  const member = await one(tx, `SELECT id, status FROM members WHERE id = $1`, [memberId]);
+  if (!member || member.status !== 'ACTIVE') throw notFound('Active member');
+  let existing: any = null;
+  try { existing = (await resolveScan(tx, raw, { allowCode: true, lock: true })).credential; }
+  catch (e) { if (!(e instanceof ScanError) || e.reasonCode !== 'NOT_FOUND') throw e; }
+  if (existing) {
+    if (existing.type === 'QR_TICKET' || existing.type === 'BOOKING' || existing.type === 'DIGITAL_CARD') throw unprocessable('NOT_A_CARD', 'This code is a ticket / booking / digital card, not a physical card');
+    if (existing.status === 'NEW') {
+      await tx.query(`UPDATE credentials SET status = 'ACTIVE', activated_at = now() WHERE id = $1`, [existing.id]);
+    }
+    const bound = await bindMember(tx, actor, existing.id, memberId, afterCommit);
+    return { credential: bound, created: false };
+  }
+  const serial = normalizeSerial(raw);
+  if (!serial || serial.length < 4 || serial.length > 64 || /^TP[12]\./.test(serial)) throw badRequest('INVALID_CARD_NUMBER', 'เลขบัตรต้องยาว 4–64 ตัวอักษร / Card number must be 4–64 characters');
+  const account = await ensureMemberAccount(tx, memberId);
+  const cred = await issueCredential(tx, { type: 'MEMBER_CARD', memberId, accountId: account, branchId: actor.branchId ?? null, physicalSerial: serial, issuedBy: actor.staffId ?? null });
+  await audit(tx, actor, { action: 'CREDENTIAL_LINK_EXISTING_CARD', entityType: 'credential', entityId: cred.id, after: { memberId, physicalSerial: serial } });
+  afterCommit(() => publish([rooms.account(account)], 'credential.updated', { credentialId: cred.id }));
+  return { credential: cred, created: true };
 }
 
 /** Unbind: the credential gets a fresh guest account; wallet & points stay with the member. */

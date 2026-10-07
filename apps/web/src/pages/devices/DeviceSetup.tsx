@@ -4,9 +4,11 @@ import { useQuery } from '@tanstack/react-query';
 import { sapi, errorMessage } from '../../lib/api';
 import { useAuth, useBranchId } from '../../lib/auth';
 import { Badge, Button, Card, Field, Input, toast } from '../../components/ui';
+import { useStaffTranslation } from '../../lib/staffI18n';
 
 /** Pair this browser with a registered device (API key from Admin → Devices) and pick its screen. */
 export function DeviceSetup() {
+  useStaffTranslation();
   const { deviceKey, setDeviceKey, staffToken } = useAuth();
   const [key, setKey] = useState(deviceKey ?? '');
   const nav = useNavigate();

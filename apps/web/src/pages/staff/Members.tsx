@@ -6,6 +6,7 @@ import { sapi, errorMessage, qs } from '../../lib/api';
 import { useCan } from '../../lib/auth';
 import { fmtDate, fmtDateTime, thb } from '../../lib/format';
 import { withApproval } from '../../components/Approval';
+import { LinkCardButton } from '../../components/LinkCard';
 import { Badge, Button, Card, Field, Input, KV, Loading, Modal, PageHeader, Select, Table, Tabs, toast } from '../../components/ui';
 
 export function Members() {
@@ -41,6 +42,7 @@ export function MemberDetail() {
   return (
     <div className="space-y-4">
       <PageHeader title={`${m.first_name} ${m.last_name}`} subtitle={`${m.member_code} · joined ${fmtDate(m.join_date)} via ${m.registered_via}`} actions={<>
+        {(can('credential.issue') || can('credential.manage')) && <LinkCardButton memberId={m.id} onLinked={() => { qc.invalidateQueries({ queryKey: ['member', id] }); setTab('cards'); }} />}
         {can('member.edit') && <Button variant="outline" onClick={() => { setF({ firstName: m.first_name, lastName: m.last_name, phone: m.phone, email: m.email ?? '', birthday: m.birthday ?? '', status: m.status }); setEdit(true); }}>Edit</Button>}
         {can('points.adjust') && <Button variant="outline" icon={<Star className="h-4 w-4" />} onClick={async () => {
           const v = prompt('Points (+/−)?'); const reason = v && prompt('Reason?'); if (!v || !reason) return;
@@ -58,8 +60,8 @@ export function MemberDetail() {
       {tab === 'tickets' && <Card padded={false}><Table dense rows={m.tickets} columns={[{ key: 'ticket_code', header: 'Ticket' }, { key: 'package_name', header: 'Package' }, { key: 'visit_date', header: 'Visit', render: (r: any) => fmtDate(r.visit_date) }, { key: 'status', header: 'Status', render: (r: any) => <Badge>{r.status}</Badge> }]} /></Card>}
       {tab === 'orders' && <Card padded={false}><Table dense rows={m.orders} columns={[{ key: 'created_at', header: 'Time', render: (r: any) => fmtDateTime(r.created_at) }, { key: 'order_no', header: 'Order' }, { key: 'type', header: 'Type' }, { key: 'status', header: 'Status', render: (r: any) => <Badge>{r.status}</Badge> }, { key: 'total', header: 'Total', align: 'right', render: (r: any) => thb(r.total) }]} /></Card>}
       {tab === 'rides' && <Card padded={false}><Table dense rows={m.rides} columns={[{ key: 'scanned_at', header: 'Time', render: (r: any) => fmtDateTime(r.scanned_at) }, { key: 'ride_name', header: 'Ride' }, { key: 'result', header: 'Result', render: (r: any) => <Badge>{r.result}</Badge> }]} /></Card>}
-      {tab === 'points' && <Card padded={false}><Table dense rows={m.points} columns={[{ key: 'created_at', header: 'Time', render: (r: any) => fmtDateTime(r.created_at) }, { key: 'type', header: 'Type' }, { key: 'points', header: 'Points', align: 'right' }, { key: 'balance_after', header: 'Balance', align: 'right' }, { key: 'note', header: 'Note' }]} /></Card>}
-      {tab === 'cards' && <Card padded={false}><Table dense rows={m.credentials} onRowClick={(r: any) => nav(`/staff/cards?id=${r.id}`)} columns={[{ key: 'code', header: 'Card' }, { key: 'type', header: 'Type' }, { key: 'status', header: 'Status', render: (r: any) => <Badge>{r.status}</Badge> }, { key: 'issued_at', header: 'Issued', render: (r: any) => fmtDate(r.issued_at) }]} /></Card>}
+      {tab === 'points' && <Card padded={false}><Table dense rows={m.pointsHistory} columns={[{ key: 'created_at', header: 'Time', render: (r: any) => fmtDateTime(r.created_at) }, { key: 'type', header: 'Type' }, { key: 'points', header: 'Points', align: 'right' }, { key: 'balance_after', header: 'Balance', align: 'right' }, { key: 'note', header: 'Note' }]} /></Card>}
+      {tab === 'cards' && <Card padded={false}><Table dense rows={m.credentials} onRowClick={(r: any) => nav(`/staff/cards?id=${r.id}`)} columns={[{ key: 'code', header: 'Card' }, { key: 'type', header: 'Type' }, { key: 'physical_serial', header: 'Card number', render: (r: any) => <span className="font-mono">{r.physical_serial ?? '-'}</span> }, { key: 'status', header: 'Status', render: (r: any) => <Badge>{r.status}</Badge> }, { key: 'issued_at', header: 'Issued', render: (r: any) => fmtDate(r.issued_at) }]} /></Card>}
       <Modal open={edit} onClose={() => setEdit(false)} title="Edit member" footer={<Button onClick={async () => { try { await sapi.patch(`/api/members/${id}`, { ...f, email: f.email || null, birthday: f.birthday || null }); setEdit(false); qc.invalidateQueries({ queryKey: ['member', id] }); } catch (e) { toast.error(errorMessage(e)); } }}>Save</Button>}>
         <div className="grid grid-cols-2 gap-3">
           {[['firstName', 'First name'], ['lastName', 'Last name'], ['phone', 'Phone'], ['email', 'Email'], ['birthday', 'Birthday']].map(([k, l]) => <Field key={k} label={l}><Input type={k === 'birthday' ? 'date' : 'text'} value={f[k] ?? ''} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></Field>)}

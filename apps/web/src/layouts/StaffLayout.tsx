@@ -5,7 +5,9 @@ import {
   Activity, BarChart3, Bell, Boxes, Building2, CalendarDays, ClipboardList, CreditCard, DoorOpen, FerrisWheel, FileClock, Gift, KeyRound, Landmark, LayoutDashboard,
   Lock, LogOut, Map, Menu, MonitorSmartphone, Package, Percent, ReceiptText, Settings, ShieldCheck, ShoppingCart, Store, Tags, Ticket, Timer, Users, UserCog, Wallet, X, Cpu,
 } from 'lucide-react';
-import { Badge, Select, cx, toast } from '../components/ui';
+import { Badge, Select, TextSizeControl, cx, toast } from '../components/ui';
+import { StaffLangToggle } from '../components/StaffLangToggle';
+import { useStaffTranslation } from '../lib/staffI18n';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { sapi } from '../lib/api';
 import { useAuth, useBranchId, useCan } from '../lib/auth';
@@ -63,6 +65,7 @@ const NAV: Array<{ group: string; items: NavItem[] }> = [
 
 export function StaffLayout() {
   useSurfaceFont('admin');
+  useStaffTranslation();
   const { staff, logoutStaff, setBranch } = useAuth();
   const branchId = useBranchId();
   const can = useCan();
@@ -125,6 +128,8 @@ export function StaffLayout() {
           )}
           {staff?.branchId && !can('dashboard.consolidated') && <div className="text-sm font-medium text-slate-600">{branches.data?.find((b: any) => b.id === branchId)?.name}</div>}
           <div className="ml-auto flex items-center gap-2">
+            <StaffLangToggle />
+            <TextSizeControl className="hidden sm:inline-flex" />
             {can('shift.open') && (
               <Link to="/staff/shifts" className="hidden sm:block">{shift.data ? <Badge tone="green"><Activity className="h-3 w-3" /> Shift {shift.data.shift.shift_no}</Badge> : <Badge tone="amber">No open shift</Badge>}</Link>
             )}

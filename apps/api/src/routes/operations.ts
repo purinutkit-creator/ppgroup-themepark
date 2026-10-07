@@ -9,7 +9,7 @@ import { publish, rooms } from '../realtime/hub.js';
 import { audit } from '../services/audit.js';
 import { grantApproval } from '../services/approvals.js';
 import {
-  bindMember, credentialPayloads, credentialProfile, issueCredential, replaceCredential, resolveScan, rotateToken, setCredentialStatus, unbindMember,
+  bindMember, credentialPayloads, credentialProfile, issueCredential, linkCardToMember, replaceCredential, resolveScan, rotateToken, setCredentialStatus, unbindMember,
 } from '../services/credentials.js';
 import { createGuestAccount } from '../services/accounts.js';
 import { adjustWallet, refundOrder, walletCashOut } from '../services/refunds.js';
@@ -349,6 +349,12 @@ export async function operationsRoutes(app: FastifyInstance) {
       password: z.string().min(8).nullish(), gender: z.enum(['MALE', 'FEMALE', 'OTHER', 'UNSPECIFIED']).nullish(), address: z.string().nullish(), emergencyContact: z.string().nullish() }), req.body);
     return withTx((tx) => registerMember(tx, req.actor, { ...b, branchId: req.actor.branchId, via: req.actor.deviceType === 'KIOSK' ? 'KIOSK' : 'COUNTER' }));
   });
+  // scan a card the customer already holds → it becomes this member's card
+  app.post('/api/members/:id/link-card', { preHandler: requireAnyPerm('credential.issue', 'credential.manage') }, async (req) => {
+    const b = parse(z.object({ scan: z.string().trim().min(1).max(512) }), req.body);
+    const r = await withTx((tx, after) => linkCardToMember(tx, req.actor, (req.params as any).id, b.scan, after));
+    return { created: r.created, credential: { id: r.credential.id, code: r.credential.code, type: r.credential.type, status: r.credential.status, physicalSerial: r.credential.physical_serial } };
+  });
   app.get('/api/members/:id', { preHandler: requirePerm('member.view') }, async (req) => {
     const id = (req.params as any).id;
     const s = await memberSummary(pool, id);
@@ -358,7 +364,7 @@ export async function operationsRoutes(app: FastifyInstance) {
       query(pool, `SELECT * FROM points_ledger WHERE member_id = $1 ORDER BY created_at DESC LIMIT 50`, [id]),
       s.account_id ? query(pool, `SELECT l.result, l.scanned_at, r.name AS ride_name FROM ride_access_logs l JOIN rides r ON r.id = l.ride_id WHERE l.account_id = $1 ORDER BY l.scanned_at DESC LIMIT 50`, [s.account_id]) : [],
     ]);
-    return { ...s, tickets, orders, points, rides };
+    return { ...s, tickets, orders, pointsHistory: points, rides };
   });
   app.patch('/api/members/:id', { preHandler: requirePerm('member.edit') }, async (req) => {
     const b = parse(z.object({ firstName: z.string().min(1).optional(), lastName: z.string().optional(), phone: zPhone.optional(), email: z.string().email().nullish(), birthday: zDate.nullish(),

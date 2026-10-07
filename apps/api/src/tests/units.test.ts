@@ -70,3 +70,13 @@ describe('ticket rules', () => {
     expect(ageOn('2016-10-07', '2026-10-07')).toBe(10);
   });
 });
+
+describe('scanner typing with the Thai keyboard layout', () => {
+  it('maps Thai-layout keystrokes back to the scanned code', async () => {
+    const { fixThaiKeyboardLayout } = await import('../lib/keyboard.js');
+    const thai = (s: string) => [...s].map((c) => ({ T: 'ธ', P: 'ญ', '1': 'ๅ', '.': 'ใ', A: 'ฤ', B: 'ฺ', '8': 'ค', '5': 'ถ', '0': 'จ', '2': '/', '3': '-', '-': 'ข' } as Record<string, string>)[c] ?? c).join('');
+    expect(fixThaiKeyboardLayout(thai('TP1.AB'))).toBe('TP1.AB');
+    expect(fixThaiKeyboardLayout(thai('8850023'))).toBe('8850023');
+    expect(fixThaiKeyboardLayout('CARD-0001')).toBe('CARD-0001'); // untouched without Thai characters
+  });
+});

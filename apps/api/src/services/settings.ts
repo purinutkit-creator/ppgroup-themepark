@@ -9,6 +9,11 @@ export const SETTING_DEFAULTS = {
     name: 'PP Group Theme Park', logoUrl: null as string | null, currency: 'THB', taxRate: 7, taxIncluded: true,
     defaultLanguage: 'th', languages: ['th', 'en', 'zh'], supportPhone: '02-000-0000', website: '',
   },
+  // staff screens language + text size (%) per surface; each device can still nudge its own size (A− / A+)
+  display: {
+    staffLanguage: 'th',
+    textSize: { customer: 100, admin: 100, pos: 100, kiosk: 100, gate: 100 },
+  },
   capacity: { warnPercents: [80, 90, 100], stopOnlineSalesWhenFull: true, blockEntryWhenFull: true },
   gate: {
     approvalTimeoutSec: 60, displayResultMs: 2500, antiPassback: true, requireInsideForRides: true,

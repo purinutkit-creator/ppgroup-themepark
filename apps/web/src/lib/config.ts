@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { papi } from './api';
+import { useTextSize, type TextSurface } from './textSize';
 
 export interface PublicConfig {
   park: { name: string; logoUrl: string | null; currency: string; defaultLanguage: string; languages: string[]; supportPhone: string };
   fonts: Record<'customer' | 'admin' | 'pos' | 'kiosk' | 'gate' | 'receipt' | 'ticket', string>;
+  display?: { staffLanguage?: 'th' | 'en'; textSize?: Partial<Record<TextSurface, number>> };
   customFonts: Array<{ family: string; url: string }>;
   paymentMethods: Array<{ method: string; online: boolean; counter: boolean }>;
   booking: { payAtParkEnabled: boolean; maxGuests: number; advanceDays: number; guestCheckout: boolean };
@@ -15,6 +17,8 @@ export interface PublicConfig {
 export function usePublicConfig() {
   return useQuery({ queryKey: ['public-config'], queryFn: () => papi.get<PublicConfig>('/api/public/config'), staleTime: 60_000 });
 }
+
+const textSurface = (s: string): TextSurface => (['customer', 'admin', 'pos', 'kiosk', 'gate'].includes(s) ? s : 'customer') as TextSurface;
 
 const loaded = new Set<string>();
 /** Apply the admin-selected font for a surface (Google Font or uploaded custom font). */
@@ -38,4 +42,14 @@ export function useSurfaceFont(surface: keyof PublicConfig['fonts']) {
     }
     document.documentElement.style.setProperty('--font-main', `"${family}"`);
   }, [data, surface]);
+
+  // text size: admin setting (per surface) × this device's own adjustment; everything is rem-based, so the root size scales the UI
+  const ts = textSurface(surface);
+  const local = useTextSize((s) => s.adjust[ts] ?? 100);
+  const admin = data?.display?.textSize?.[ts] ?? 100;
+  useEffect(() => {
+    useTextSize.setState({ current: ts });
+    const pct = Math.min(250, Math.max(60, (admin * local) / 100));
+    document.documentElement.style.fontSize = `${(16 * pct) / 100}px`;
+  }, [ts, admin, local]);
 }
