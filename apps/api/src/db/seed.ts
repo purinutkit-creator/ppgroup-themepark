@@ -311,9 +311,13 @@ async function main() {
   if (existing) { console.log('Database already seeded — skipping.'); await pool.end(); return; }
   const r = await withTx((tx) => seed(tx));
   const out = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../.device-keys.local.json');
-  fs.writeFileSync(out, JSON.stringify({ branchId: r.branch, keys: r.deviceKeys }, null, 2));
   console.log(`✓ Seed complete. Branch ${r.branch}`);
-  console.log(`  Device API keys written to ${out} (keep secret; re-issue from Admin → Devices).`);
+  try {
+    fs.writeFileSync(out, JSON.stringify({ branchId: r.branch, keys: r.deviceKeys }, null, 2));
+    console.log(`  Device API keys written to ${out} (keep secret; re-issue from Admin → Devices).`);
+  } catch {
+    console.log('  Could not write the device key file (read-only filesystem). Issue device keys from Admin → Devices.');
+  }
   console.log('  Staff logins: OWNER/000000, EMP001/1111 (Admin), EMP002/2222 (Manager), EMP003/3333 (Supervisor), EMP010/1010 (Ticket), EMP020/2020 (Gate), EMP030/3030 (Ride), EMP040/4040 (Food), EMP041/4141 (Kitchen), EMP050/5050 (Retail), EMP070/7070 (CS), EMP080/8080 (Finance)');
   console.log('  Demo member: 0812345678 / member1234');
   await pool.end();

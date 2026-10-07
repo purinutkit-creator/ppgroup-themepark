@@ -3,6 +3,9 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
+import fastifyStatic from '@fastify/static';
+import fs from 'node:fs';
+import path from 'node:path';
 import { config } from './config.js';
 import { AppError } from './lib/errors.js';
 import { resolveActor } from './middleware/auth.js';
@@ -52,5 +55,21 @@ export async function buildApp() {
   });
 
   await registerRoutes(app);
+
+  // single-service deployments: serve the built web app (WEB_DIST) with SPA fallback
+  const webDist = process.env.WEB_DIST ? path.resolve(process.env.WEB_DIST) : null;
+  if (webDist && fs.existsSync(path.join(webDist, 'index.html'))) {
+    await app.register(fastifyStatic, {
+      root: webDist, wildcard: false, index: false,
+      setHeaders: (res, file) => res.header('cache-control', file.includes(`${path.sep}assets${path.sep}`) ? 'public, max-age=31536000, immutable' : 'no-cache'),
+    });
+    app.setNotFoundHandler((req, reply) => {
+      const url = req.url.split('?')[0];
+      if (req.method !== 'GET' || /^\/(api|socket\.io|assets)\//.test(url)) {
+        return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
+      }
+      return reply.header('cache-control', 'no-cache').sendFile('index.html');
+    });
+  }
   return app;
 }

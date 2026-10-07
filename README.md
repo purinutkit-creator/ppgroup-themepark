@@ -89,6 +89,14 @@ docker compose up -d --build          # db + api + web (nginx on :8080)
 docker compose exec api node dist/db/seed.js   # optional demo configuration
 ```
 
+### Single service (Render and similar)
+
+The root `Dockerfile` builds one image in which the API also serves the web app (`WEB_DIST`), so pages, REST and
+Socket.IO share one origin. Required env: `DATABASE_URL`, `JWT_SECRET`, `QR_SIGNING_SECRET` (≥ 32 chars each),
+`CORS_ORIGIN` (the public URL). For a demo, add `SEED_DEMO=true` (seeds once on an empty database) and
+`ALLOW_PAYMENT_SIMULATOR=true`. Without a persistent disk mounted at `/data`, slip images and uploaded fonts are
+lost on redeploy.
+
 See **[docs/OPERATIONS.md](docs/OPERATIONS.md)** before going live.
 
 ## Documentation
