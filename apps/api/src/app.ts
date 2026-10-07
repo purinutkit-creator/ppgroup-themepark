@@ -65,7 +65,7 @@ export async function buildApp() {
     });
     app.setNotFoundHandler((req, reply) => {
       const url = req.url.split('?')[0];
-      if (req.method !== 'GET' || /^\/(api|socket\.io|assets)\//.test(url)) {
+      if ((req.method !== 'GET' && req.method !== 'HEAD') || /^\/(api|socket\.io|assets)\//.test(url)) {
         return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Route not found' } });
       }
       return reply.header('cache-control', 'no-cache').sendFile('index.html');
